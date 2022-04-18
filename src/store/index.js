@@ -20,6 +20,12 @@ export default createStore({
         description: '',
       });
     },
+    CREATE_COLUMN(state, { name }) {
+      state.board.columns.push({
+        name,
+        tasks: [],
+      });
+    },
     MOVE_TASK(state, { fromTasks, toTasks, fromTaskIndex, toTaskIndex }) {
       const [taskToMove] = fromTasks.splice(fromTaskIndex, 1);
       toTasks.splice(toTaskIndex, 0, taskToMove);

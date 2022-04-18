@@ -1,40 +1,25 @@
 <template>
   <div class="board">
     <div class="items">
-      <div
-        class="column"
+      <BoardColumn
         v-for="(column, $columnIndex) of board.columns"
         :key="$columnIndex"
-        @drop="moveTaskOrColumn($event, column.tasks, $columnIndex)"
-        @dragover.prevent
-        @dragenter.prevent
-        draggable="true"
-        @dragstart.self="pickupColumn($event, $columnIndex)"
-      >
-        <div class="title">{{ column.name }}</div>
-        <div class="list-reset">
-          <TaskCard
-            v-for="(task, $taskIndex) of column.tasks"
-            :key="$taskIndex"
-            :task="task"
-            draggable="true"
-            @dragstart="pickupTask($event, $taskIndex, $columnIndex)"
-            @click="goToTask(task)"
-            @dragover.prevent
-            @dragenter.prevent
-            @drop.stop="
-              moveTaskOrColumn($event, column.tasks, $columnIndex, $taskIndex)
-            "
-          />
-          <div>
-            <Input
-              @click="setColumn(column)"
-              :deleteInput="true"
-              :placeholder="'+ Add the task'"
-              @keyEnter="onKeyEnter"
-            />
-          </div>
-        </div>
+        :column="column"
+        :columnIndex="$columnIndex"
+        @onDrop="moveTaskOrColumn"
+        @onPickupColumn="pickupColumn"
+        @onPickupTask="pickupTask"
+        @goToTask="goToTask"
+        @onSetColumn="setColumn"
+        @onKeyEnter="onKeyEnter"
+      />
+      <div class="column">
+        <Input
+          type="text"
+          :deleteInput="true"
+          placeholder="Add new Column"
+          @keyEnter="createColumn"
+        />
       </div>
     </div>
 
@@ -49,13 +34,13 @@
 import { computed, ref } from '@vue/runtime-core';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
-import TaskCard from '@/components/TaskCard.vue';
-import Task from '@/components/Task.vue';
+import BoardColumn from '@/components/BoardColumn.vue';
 import Input from '../components/shared/Input.vue';
+import Task from '../components/Task.vue';
 
 export default {
   name: 'BoardView',
-  components: { TaskCard, Task, Input },
+  components: { Input, BoardColumn, Task },
   setup() {
     const store = useStore();
     const route = useRoute();
@@ -66,7 +51,7 @@ export default {
     const board = computed(() => store.state.board);
     const isTaskOpen = computed(() => route.name === 'TaskComponent');
 
-    function goToTask(task) {
+    function goToTask({ task }) {
       currentTask.value = task;
       router.push({
         name: 'TaskComponent',
@@ -86,25 +71,28 @@ export default {
       });
     }
 
-    function onKeyEnter({ value }) {
+    function onKeyEnter(value) {
       const { tasks } = currentColumn.value;
+
       store.commit('CREATE_TASK', { tasks, name: value });
     }
 
-    function setColumn(column) {
+    function createColumn({ value }) {
+      store.commit('CREATE_COLUMN', { name: value });
+    }
+    function setColumn({ column }) {
       currentColumn.value = column;
     }
 
-    function pickupTask(event, taskIndex, fromColumnIndex) {
+    function pickupTask({ event, taskIndex, columnIndex: fromColumnIndex }) {
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.dropEffect = 'move';
-
       event.dataTransfer.setData('task-index', taskIndex);
       event.dataTransfer.setData('from-column-index', fromColumnIndex);
       event.dataTransfer.setData('type', 'task');
     }
 
-    function pickupColumn(event, fromColumnIndex) {
+    function pickupColumn({ event, columnIndex: fromColumnIndex }) {
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.dropEffect = 'move';
 
@@ -112,13 +100,18 @@ export default {
       event.dataTransfer.setData('type', 'column');
     }
 
-    function moveTaskOrColumn(event, toTasks, toColumnIndex, taskIndex) {
+    function moveTaskOrColumn({
+      event,
+      toTasks,
+      columnIndex: toColumnIndex,
+      taskIndex,
+    }) {
       const type = event.dataTransfer.getData('type');
       taskIndex = taskIndex !== undefined ? taskIndex : toTasks.length;
 
       type === 'task'
-        ? this.moveTask(event, toTasks, taskIndex)
-        : this.moveColumn(event, toColumnIndex);
+        ? moveTask(event, toTasks, taskIndex)
+        : moveColumn(event, toColumnIndex);
     }
 
     function moveTask(event, toTasks, toTaskIndex) {
@@ -147,11 +140,13 @@ export default {
 
     return {
       board,
+      BoardColumn,
       isTaskOpen,
       goToTask,
       close,
       onSetDescription,
       onKeyEnter,
+      createColumn,
       setColumn,
       pickupTask,
       pickupColumn,
@@ -184,15 +179,6 @@ export default {
   justify-content: space-evenly;
   align-items: flex-start;
   align-content: stretch;
-}
-
-.column {
-  background: #dcdcdc;
-  text-align: left;
-  margin: 5px;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  border-radius: 0.25rem;
-  flex: 1;
 }
 
 .task-bg {
